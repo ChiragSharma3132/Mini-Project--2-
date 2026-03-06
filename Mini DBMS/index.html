@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini Database Engine  col=white
+    </title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <h2 class="logo">MiniDB</h2>
+
+        <button class="nav-btn active" onclick="switchTab('editor', event)">
+            📝 Query Editor
+        </button>
+
+        <button class="nav-btn" onclick="switchTab('tables', event)">
+            📊 Tables
+        </button>
+
+        <button class="nav-btn" onclick="switchTab('indexes', event)">
+            🔗 Indexes
+        </button>
+    </aside>
+
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <div class="header">
+            <h1>Mini Database Engine</h1>
+            <p>A hands-on educational platform for learning database internals</p>
+        </div>
+
+
+        <!-- Query Editor -->
+        <section id="editor" class="tab active">
+
+            <div class="card">
+                <h3>SQL Query Editor</h3>
+
+                <textarea id="queryInput" placeholder="Enter your SQL query here..."></textarea>
+
+                <div class="btn-group">
+                    <button onclick="executeQuery()">Execute Query</button>
+                    <button onclick="clearQuery()">Clear</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Example Queries</h3>
+                <button onclick="insertExample('create')">CREATE</button>
+                <button onclick="insertExample('insert')">INSERT</button>
+                <button onclick="insertExample('select')">SELECT</button>
+                <button onclick="insertExample('update')">UPDATE</button>
+                <button onclick="insertExample('delete')">DELETE</button>
+            </div>
+
+            <div class="card">
+                <h3>Query History</h3>
+                <ul id="history"></ul>
+            </div>
+
+        </section>
+
+
+        <!-- Tables -->
+        <section id="tables" class="tab">
+            <div class="card">
+                <h3>Tables</h3>
+                <p>All created tables will appear here.</p>
+            </div>
+        </section>
+
+
+        <!-- Indexes -->
+        <section id="indexes" class="tab">
+            <div class="card">
+                <h3>Indexes</h3>
+                <p>Indexes created will appear here.</p>
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
