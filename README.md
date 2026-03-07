@@ -5,7 +5,7 @@ Unlike traditional databases that operate as black-box systems, this project foc
 
 The system supports basic SQL operations and simulates the internal workflow of a relational database system including query parsing, execution planning, and result retrieval.
 
-🎯 Objectives
+# 🎯 Objectives
 
 Understand the internal architecture of relational database systems
 
@@ -17,7 +17,7 @@ Gain practical experience in system-level programming
 
 Demonstrate how database queries are processed internally
 
-⚙️ Features
+# ⚙️ Features
 
 Support for basic SQL operations:
 
