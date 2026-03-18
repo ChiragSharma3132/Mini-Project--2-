@@ -1,0 +1,9 @@
+{
+  "name": "mini-dbms",
+  "version": "1.0.0",
+  "scripts": {
+    "backend": "javac backend/dbengine/*.java && java backend.dbengine.MainServer",
+    "frontend": "npx serve FrontEnd -l 3000",
+    "dev": "npx concurrently \"npm run backend\" \"npm run frontend\""
+  }
+}
