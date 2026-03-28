@@ -180,3 +180,50 @@ function insertExample(type) {
     };
     document.getElementById('queryInput').value = examples[type];
 }
+
+function getBotResponse(input) {
+    input = input.toLowerCase();
+
+    if (input.includes("hello") || input.includes("hi")) {
+        return "Hello! I can help you understand the DB engine.";
+    }
+    else if (input.includes("select")) {
+        return "SELECT retrieves data from a table.";
+    }
+    else if (input.includes("insert")) {
+        return "INSERT adds data into a table.";
+    }
+    else if (input.includes("create")) {
+        return "CREATE is used to create tables.";
+    }
+    else if (input.includes("index")) {
+        return "Indexing improves search speed using B+ Trees.";
+    }
+    else if (input.includes("parser")) {
+        return "SQL Parser converts query into structured format.";
+    }
+    else if (input.includes("query")) {
+        return "Query is parsed, planned, and executed.";
+    }
+    else {
+        return "I only answer predefined database questions.";
+    }
+}
+
+function sendMessage() {
+    let inputField = document.getElementById("chat-input");
+    let message = inputField.value;
+
+    if (message.trim() === "") return;
+
+    let chatBox = document.getElementById("chat-box");
+
+    chatBox.innerHTML += `<div><b>You:</b> ${message}</div>`;
+
+    let response = getBotResponse(message);
+
+    chatBox.innerHTML += `<div><b>Bot:</b> ${response}</div>`;
+
+    inputField.value = "";
+    chatBox.scrollTop = chatBox.scrollHeight;
+}

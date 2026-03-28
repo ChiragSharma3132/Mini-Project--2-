@@ -3,7 +3,10 @@ package backend.dbengine;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 public class MainServer {
 
@@ -175,6 +178,103 @@ public class MainServer {
 
         });
 
+        server.createContext("/chat", (HttpExchange exchange) -> {
+            // CORS fix
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody()))) {
+                    StringBuilder msgBuilder = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        msgBuilder.append(line);
+                    }
+                    String message = msgBuilder.toString().trim();
+
+                    // Get API key from environment variable
+                    String apiKey = System.getenv("GEMINI_API_KEY");
+                    if (apiKey == null || apiKey.isEmpty()) {
+                        String errMsg = "{\"error\": \"API key not configured\"}";
+                        byte[] response = errMsg.getBytes(StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(500, response.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(response);
+                        }
+                        return;
+                    }
+
+                    // Call Gemini API
+                    String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+                    String jsonPayload = "{\"contents\": [{\"role\": \"user\", \"parts\": [{\"text\": \"" + escapeJson(message) + "\"}]}]}";
+
+                    try {
+                        URL url = new URL(geminiUrl);
+                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestMethod("POST");
+                        conn.setRequestProperty("Content-Type", "application/json");
+                        conn.setDoOutput(true);
+                        conn.setDoInput(true);
+
+                        byte[] payloadBytes = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                        conn.setFixedLengthStreamingMode(payloadBytes.length);
+
+                        try (OutputStream os = conn.getOutputStream()) {
+                            os.write(payloadBytes);
+                            os.flush();
+                        }
+
+                        int responseCode = conn.getResponseCode();
+                        StringBuilder responseBuilder = new StringBuilder();
+
+                        InputStream inputStream;
+                        if (responseCode >= 200 && responseCode < 300) {
+                            inputStream = conn.getInputStream();
+                        } else {
+                            inputStream = conn.getErrorStream();
+                        }
+
+                        try (BufferedReader apiReader = new BufferedReader(new InputStreamReader(inputStream))) {
+                            String apiLine;
+                            while ((apiLine = apiReader.readLine()) != null) {
+                                responseBuilder.append(apiLine);
+                            }
+                        }
+
+                        String response = responseBuilder.toString();
+                        if (response.length() == 0) {
+                            response = "{\"error\": \"No response from API\"}";
+                        }
+
+                        byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(200, responseBytes.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(responseBytes);
+                        }
+
+                        conn.disconnect();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        String errMsg = "{\"error\": \"" + escapeJson(e.toString()) + "\"}";
+                        byte[] errResponse = errMsg.getBytes(StandardCharsets.UTF_8);
+                        exchange.sendResponseHeaders(500, errResponse.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(errResponse);
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(400, -1);
+                }
+            }
+        });
+
         server.start();
 
         System.out.println("Server running at http://localhost:8080");
@@ -193,5 +293,13 @@ public class MainServer {
             ex.printStackTrace();
             System.exit(1);
         }
+    }
+
+    private static String escapeJson(String input) {
+        if (input == null) return "";
+        return input.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r");
     }
 }

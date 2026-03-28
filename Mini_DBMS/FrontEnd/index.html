@@ -39,7 +39,10 @@
             </button>
             
             <button class="nav-btn" onclick="switchTab('analysis', event)">
-                📊 Analysis
+                🗂 Analysis
+
+            <button class="nav-btn" onclick="switchTab('help', event)">
+                 ❓ Help
             </button>
         </nav>
 
@@ -207,6 +210,20 @@
             </div>
 
         </section>
+            <section id="help" class="tab">
+    <div class="card">
+        <div class="card-header">
+            <h3>Help & Assistant 🤖</h3>
+        </div>
+
+        <div id="chat-box" style="height:300px; overflow-y:auto; background:#2c2c2c; padding:10px; color:white;"></div>
+
+        <div style="margin-top:10px;">
+            <input type="text" id="chat-input" placeholder="Ask something..." />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+</section>
 
     </main>
 
@@ -214,5 +231,3 @@
 
 <script src="script.js"></script>
 
-</body>
-</html>

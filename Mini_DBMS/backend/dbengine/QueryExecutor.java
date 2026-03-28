@@ -41,33 +41,11 @@ public String executeWeb(String query) {
             return delete(query);
             }
 
-        case "ANALYSIS" -> {
-            return runAnalysis(query);
-        }
 
         default -> {
             return "Invalid Query";
             }
     }
-}
-
-private String runAnalysis(String query) {
-    // Example query format:
-    // ANALYSIS tableName xColumn yColumn
-
-    String[] parts = query.split(" ");
-    
-    if (parts.length < 4) {
-        return "Invalid ANALYSIS syntax";
-    }
-
-    String table = parts[1];
-    String x = parts[2];
-    String y = parts[3];
-
-    Map<String, Double> result = analyzeXY(table, x, y);
-
-    return new com.google.gson.Gson().toJson(result);
 }
 
 private String selectWeb(String query) {
