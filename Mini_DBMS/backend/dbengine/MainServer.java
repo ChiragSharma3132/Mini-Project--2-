@@ -6,7 +6,10 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainServer {
 
@@ -178,6 +181,66 @@ public class MainServer {
 
         });
 
+        server.createContext("/table-description", (HttpExchange exchange) -> {
+
+            // CORS fix
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String query = exchange.getRequestURI().getQuery();
+                String tableName = null;
+                if (query != null && query.startsWith("table=")) {
+                    tableName = URLDecoder.decode(query.substring(6), StandardCharsets.UTF_8);
+                }
+                if (tableName == null || tableName.isBlank()) {
+                    exchange.sendResponseHeaders(400, -1);
+                    return;
+                }
+
+                QueryExecutor executor = new QueryExecutor();
+                String description = executor.getTableDescription(tableName);
+
+                String apiKey = System.getenv("GEMINI_API_KEY");
+                if (apiKey != null && !apiKey.isBlank()) {
+                    try {
+                        String schema = executor.getTableSchema(tableName);
+                        String prompt = "You are describing database tables for students in simple clear English. "
+                                + "Write a practical table description with these sections: "
+                                + "1) What this table stores (2-3 lines), "
+                                + "2) Column meanings (one line per column), "
+                                + "3) What one row represents, "
+                                + "4) Why this table is useful. "
+                                + "Avoid guessing unsupported facts. "
+                                + "Table name: " + tableName + "\n"
+                                + "Schema:\n" + schema + "\n"
+                                + "Fallback description:\n" + description;
+
+                        String aiDescription = generateGeminiText(prompt, apiKey);
+                        if (aiDescription != null && !aiDescription.isBlank()) {
+                            description = aiDescription;
+                        }
+                    } catch (Exception ignored) {
+                        // Keep deterministic fallback description if AI call fails.
+                    }
+                }
+
+                byte[] response = description.getBytes(StandardCharsets.UTF_8);
+
+                exchange.sendResponseHeaders(200, response.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response);
+                }
+            }
+
+        });
+
         server.createContext("/chat", (HttpExchange exchange) -> {
             // CORS fix
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
@@ -301,5 +364,57 @@ public class MainServer {
                     .replace("\"", "\\\"")
                     .replace("\n", "\\n")
                     .replace("\r", "\\r");
+    }
+
+    private static String generateGeminiText(String prompt, String apiKey) throws IOException {
+        String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+        String jsonPayload = "{\"contents\": [{\"role\": \"user\", \"parts\": [{\"text\": \"" + escapeJson(prompt) + "\"}]}]}";
+
+        URL url = new URL(geminiUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        conn.setDoInput(true);
+
+        byte[] payloadBytes = jsonPayload.getBytes(StandardCharsets.UTF_8);
+        conn.setFixedLengthStreamingMode(payloadBytes.length);
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(payloadBytes);
+            os.flush();
+        }
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode < 200 || responseCode >= 300) {
+            conn.disconnect();
+            return "";
+        }
+
+        StringBuilder responseBuilder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                responseBuilder.append(line);
+            }
+        }
+        conn.disconnect();
+
+        String response = responseBuilder.toString();
+        Pattern textPattern = Pattern.compile("\\\"text\\\"\\s*:\\s*\\\"(.*?)\\\"", Pattern.DOTALL);
+        Matcher matcher = textPattern.matcher(response);
+        if (matcher.find()) {
+            return unescapeJsonString(matcher.group(1)).trim();
+        }
+        return "";
+    }
+
+    private static String unescapeJsonString(String value) {
+        if (value == null) return "";
+        return value.replace("\\n", "\n")
+                    .replace("\\r", "\r")
+                    .replace("\\t", "\t")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
     }
 }

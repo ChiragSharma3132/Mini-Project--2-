@@ -169,6 +169,23 @@ textarea:focus {
     transform: scale(1.02);
 }
 
+.table-description {
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #f8fafc;
+    min-height: 70px;
+}
+
+.table-description-output {
+    margin: 0;
+    white-space: pre-line;
+    font-family: 'Poppins', sans-serif;
+    line-height: 1.6;
+    color: #0f172a;
+}
+
 .history-card {
     display: flex;
     flex-direction: column;

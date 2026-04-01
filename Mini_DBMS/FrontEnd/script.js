@@ -152,10 +152,17 @@ async function loadTables() {
         const tablesText = await response.text();
         const tables = tablesText.trim().split('\n').filter(t => t);
         const container = document.getElementById('tablesContainer');
+        const description = document.getElementById('tableDescription');
         container.innerHTML = '';
         if (tables.length === 0) {
             container.innerHTML = '<p>No tables found.</p>';
+            if (description) {
+                description.innerHTML = '<p>No table selected.</p>';
+            }
         } else {
+            if (description) {
+                description.innerHTML = '<p>Select a table to view its description.</p>';
+            }
             tables.forEach(table => {
                 const button = document.createElement('button');
                 button.textContent = table;
@@ -167,6 +174,32 @@ async function loadTables() {
     } catch (error) {
         console.error(error);
         document.getElementById('tablesContainer').innerHTML = '<p>Error loading tables.</p>';
+    }
+}
+
+async function showTableDetails(tableName) {
+    const description = document.getElementById('tableDescription');
+    if (!description) return;
+
+    description.textContent = `Generating description for ${tableName}...`;
+
+    try {
+        const response = await fetch(`${BACKEND_URL}/table-description?table=${encodeURIComponent(tableName)}`);
+        const descriptionText = await response.text();
+
+        if (!response.ok) {
+            description.textContent = descriptionText || 'Failed to load table description.';
+            return;
+        }
+
+        const pre = document.createElement('div');
+        pre.className = 'table-description-output';
+        pre.textContent = descriptionText;
+        description.innerHTML = '';
+        description.appendChild(pre);
+    } catch (error) {
+        console.error(error);
+        description.textContent = 'Error loading table description.';
     }
 }
 

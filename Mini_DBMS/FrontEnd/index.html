@@ -38,11 +38,9 @@
                 📜 History
             </button>
             
-            <button class="nav-btn" onclick="switchTab('analysis', event)">
-                🗂 Analysis
 
             <button class="nav-btn" onclick="switchTab('help', event)">
-                 ❓ Help
+                ❓ Help
             </button>
         </nav>
 
@@ -138,6 +136,9 @@
                 </p>
 
                 <div id="tablesContainer"></div>
+                <div id="tableDescription" class="table-description">
+                    <p>Select a table to view its description.</p>
+                </div>
 
             </div>
 
@@ -183,33 +184,7 @@
 
         </section>
 
-        <!-- Analysis Section -->
-        <section id="analysis" class="tab">
 
-            <div class="card">
-
-                <div class="card-header">
-                    <h3>Analysis</h3>
-                </div>
-
-                <p class="info-text">
-                    Analyze your database performance and query execution.
-                </p>
-
-                <div id="analysisContainer"></div>
-                <select id="tableName"></select>
-                <select id="columnName"></select>
-                <select id="graphType">
-                <option value="bar">Bar Chart</option>
-                <option value="line">Line Chart</option>
-                <option value="pie">Pie Chart</option>
-                </select>
-
-                <button onclick="runAnalysis()">Generate Graph</button>
-
-            </div>
-
-        </section>
             <section id="help" class="tab">
     <div class="card">
         <div class="card-header">

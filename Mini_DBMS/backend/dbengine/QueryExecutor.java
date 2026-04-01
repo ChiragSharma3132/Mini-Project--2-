@@ -450,6 +450,183 @@ private String pad(String value, int width) {
         }
     }
 
+    public String getTableDescription(String tableName) {
+        List<String[]> rows = storageManager.readTable(tableName);
+        if (rows.isEmpty()) {
+            return "Table '" + tableName + "' was not found.";
+        }
+
+        String[] columns = rows.get(0);
+        String[] types = storageManager.getTableTypes(tableName);
+        int rowCount = Math.max(0, rows.size() - 1);
+        int sampleLimit = Math.min(3, rowCount);
+
+        String entity = tableName;
+        if (entity.endsWith("s") && entity.length() > 1) {
+            entity = entity.substring(0, entity.length() - 1);
+        }
+
+        String domain = inferDomain(tableName, columns);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("There is a table named \"").append(tableName).append("\" which stores information about ")
+          .append(domain).append(".\n\n");
+
+        sb.append("This table has several columns such as:\n\n");
+        for (int i = 0; i < columns.length; i++) {
+            String col = columns[i].trim();
+            String type = (i < types.length) ? types[i] : "UNKNOWN";
+            String sampleValue = pickSampleValue(rows, i);
+            sb.append(col)
+              .append(" - ")
+              .append(explainColumnPurpose(col, entity, type, sampleValue))
+              .append(" (type: ")
+              .append(type)
+              .append(")\n");
+        }
+
+        sb.append("\nEach row in the table represents one complete ")
+          .append(domain)
+          .append(" record.\n");
+        sb.append("Current row count: ").append(rowCount).append(".\n\n");
+
+        if (sampleLimit > 0) {
+            sb.append("Sample data insight: The first ").append(sampleLimit)
+              .append(" row(s) show how records are stored with real values.\n\n");
+        }
+
+        sb.append("The table is used to store and organize ")
+          .append(domain)
+          .append(" data so that it can be accessed, read, and compared easily.");
+
+        return sb.toString();
+    }
+
+    private String explainColumnPurpose(String columnName, String entity, String type, String sampleValue) {
+        java.util.Set<String> tokens = splitTokens(columnName);
+        String subject = entity.toLowerCase();
+
+        if (hasAny(tokens, "id") || endsWithId(columnName)) {
+            return "stores the unique identifier for each " + subject;
+        }
+        if (hasAny(tokens, "name", "firstname", "lastname", "fullname")) {
+            return "stores the name details";
+        }
+        if (hasAny(tokens, "age", "dob", "birthdate")) {
+            return "stores age-related information";
+        }
+        if (hasAny(tokens, "class", "grade", "section", "semester", "year")) {
+            return "stores class, grade, or academic grouping details";
+        }
+        if (hasAny(tokens, "city", "state", "country", "address", "location", "pincode", "zipcode")) {
+            return "stores location or address information";
+        }
+        if (hasAny(tokens, "phone", "mobile", "contact")) {
+            return "stores contact number information";
+        }
+        if (hasAny(tokens, "email")) {
+            return "stores email information";
+        }
+        if (hasAny(tokens, "order", "orderid")) {
+            return "stores order-related information";
+        }
+        if (hasAny(tokens, "customer", "client", "user")) {
+            return "stores customer or user-related information";
+        }
+        if (hasAny(tokens, "restaurant", "vendor", "store")) {
+            return "stores seller or provider details";
+        }
+        if (hasAny(tokens, "rider", "driver", "delivery", "courier")) {
+            return "stores delivery agent or delivery process details";
+        }
+        if (hasAny(tokens, "status", "state")) {
+            return "stores the current status of the record";
+        }
+        if (hasAny(tokens, "date", "time", "timestamp", "created", "updated")) {
+            return "stores date and time information";
+        }
+        if (hasAny(tokens, "amount", "price", "cost", "fee", "salary", "spend", "payment", "total", "subtotal", "bill")) {
+            return "stores monetary values or spending details";
+        }
+        if (hasAny(tokens, "qty", "quantity", "count", "stock")) {
+            return "stores quantity or count information";
+        }
+        if (hasAny(tokens, "rating", "score", "review")) {
+            return "stores feedback or rating information";
+        }
+
+        if (sampleValue != null && !sampleValue.isBlank()) {
+            if (sampleValue.matches("^-?\\d+$")) {
+                return "stores numeric values (example: " + sampleValue + ")";
+            }
+            if (sampleValue.matches("^-?\\d+(\\.\\d+)?$")) {
+                return "stores decimal numeric values (example: " + sampleValue + ")";
+            }
+        }
+
+        if ("INT".equalsIgnoreCase(type) || "FLOAT".equalsIgnoreCase(type)) {
+            return "stores measured numeric information";
+        }
+
+        return "stores " + columnName + " details";
+    }
+
+    private String pickSampleValue(List<String[]> rows, int columnIndex) {
+        for (int i = 1; i < rows.size(); i++) {
+            String[] row = rows.get(i);
+            if (columnIndex < row.length) {
+                String value = row[columnIndex] == null ? "" : row[columnIndex].trim();
+                if (!value.isEmpty()) {
+                    return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    private String inferDomain(String tableName, String[] columns) {
+        java.util.Set<String> allTokens = new java.util.HashSet<>(splitTokens(tableName));
+        for (String c : columns) {
+            allTokens.addAll(splitTokens(c));
+        }
+
+        if (hasAny(allTokens, "student", "class", "grade", "school", "course")) return "students and academic records";
+        if (hasAny(allTokens, "food", "order", "delivery", "restaurant", "rider", "menu")) return "food delivery orders and operations";
+        if (hasAny(allTokens, "employee", "salary", "department", "hr")) return "employees and organizational records";
+        if (hasAny(allTokens, "customer", "client", "purchase", "payment")) return "customers and transactional records";
+
+        String lower = tableName.toLowerCase();
+        return lower.endsWith("s") && lower.length() > 1 ? lower : (lower + " records");
+    }
+
+    private java.util.Set<String> splitTokens(String value) {
+        String spaced = value
+            .replaceAll("([a-z])([A-Z])", "$1 $2")
+            .replace('_', ' ')
+            .replace('-', ' ')
+            .toLowerCase();
+
+        java.util.Set<String> tokens = new java.util.HashSet<>();
+        for (String part : spaced.split("\\s+")) {
+            if (!part.isBlank()) {
+                tokens.add(part);
+            }
+        }
+        return tokens;
+    }
+
+    private boolean hasAny(java.util.Set<String> tokens, String... candidates) {
+        for (String candidate : candidates) {
+            if (tokens.contains(candidate)) return true;
+        }
+        return false;
+    }
+
+    private boolean endsWithId(String columnName) {
+        String c = columnName.toLowerCase();
+        return c.endsWith("id") && !c.equals("grid") && !c.equals("paid");
+    }
+
     public Map<String, Integer> analyze(String tableName, String columnName) {
         List<String[]> rows = storageManager.readTable(tableName);
 
