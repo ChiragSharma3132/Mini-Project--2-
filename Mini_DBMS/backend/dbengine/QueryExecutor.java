@@ -245,12 +245,7 @@ private String selectWeb(String query) {
         return "Error reading table";
     }
 }
-// bfejdgvcsdcvdsfkehfbef
-// cdbkvhkvbfejdhkcgbydbnv
-//nvjbjfnbudbvbvbkbvf
-//bvdsbvjbvv 
-// nvbfnv  vnbvr vbfnefnecjjdfcjhcbcijmhen fjhedfmbdbiwjdejlbfrfhvjes,mfhedebfewjfjhdkbvwrhf euhejlhfewfhefkjhfkwjdhfifbubfef
-// nvbbfudbfekbdvhhdoekfbeuhefbweifebfdefhed
+
 private String pad(String value, int width) {
     if (value == null) value = "";
     if (value.length() >= width) return value;
