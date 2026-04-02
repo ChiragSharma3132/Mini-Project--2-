@@ -47,8 +47,7 @@ public class MainServer {
             }
 
         });
-//vbvthbtvbvtbvtbvyhbvbvuhbhbhujvgytnjvghjvyh
-            //jbugbhuygiy
+
         server.createContext("/tables", (HttpExchange exchange) -> {
 
             // CORS fix
