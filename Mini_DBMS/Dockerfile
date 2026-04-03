@@ -4,7 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN find . -name "*.java" > sources.txt && javac -cp ".:lib/*" @sources.txt
+# lib folder ko include karo
+RUN javac -cp ".:lib/*" backend/dbengine/*.java
 
 EXPOSE 3000
 
