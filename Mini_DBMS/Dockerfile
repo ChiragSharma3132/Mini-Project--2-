@@ -4,8 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN javac -cp ".:lib/*" *.java
+RUN javac -cp ".:lib/*" backend/*.java
 
 EXPOSE 3000
 
-CMD ["java", "-cp", ".:lib/*", "MainServer"]
+CMD ["java", "-cp", ".:lib/*:backend", "backend.MainServer"]
