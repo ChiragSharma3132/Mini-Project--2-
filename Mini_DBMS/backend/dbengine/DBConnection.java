@@ -21,6 +21,8 @@ public final class DBConnection {
     private static MongoClient client;
     private static MongoDatabase database;
     private static String lastError = "Not initialized";
+    private static long lastHealthCheckTime = 0;
+    private static final long HEALTH_CHECK_INTERVAL_MS = 60000; // 1 minute
 
     private DBConnection() {
     }
@@ -73,6 +75,34 @@ public final class DBConnection {
                     + "Set MONGODB_URI or start local MongoDB at " + DEFAULT_URI + ". "
                     + "Last error: " + lastError);
         }
+        
+        // Perform periodic health check to detect stale connections
+        long now = System.currentTimeMillis();
+        if (now - lastHealthCheckTime > HEALTH_CHECK_INTERVAL_MS) {
+            lastHealthCheckTime = now;
+            try {
+                database.runCommand(new Document("ping", 1));
+            } catch (Exception ex) {
+                System.err.println("MongoDB health check failed. Attempting to reconnect...");
+                synchronized(DBConnection.class) {
+                    if (client != null) {
+                        try {
+                            client.close();
+                        } catch (Exception ignored) {}
+                        client = null;
+                    }
+                    database = null;
+                    lastError = "Health check failed, reconnecting";
+                    // Reinitialize automatically
+                    try {
+                        initialize();
+                    } catch (Exception initEx) {
+                        lastError = "Reconnection failed: " + initEx.getMessage();
+                    }
+                }
+            }
+        }
+        
         return database;
     }
 

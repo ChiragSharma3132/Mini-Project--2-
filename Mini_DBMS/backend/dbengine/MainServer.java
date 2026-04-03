@@ -24,7 +24,16 @@ public class MainServer {
                 System.err.println("Warning: starting server without DB connection. " + ex.getMessage());
             }
 
-            int requestedPort = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
+            int requestedPort = 8080;
+
+            try {
+                String portEnv = System.getenv("PORT");
+                if (portEnv != null) {
+                    requestedPort = Integer.parseInt(portEnv);
+                }
+            } catch (Exception e) {
+                System.out.println("Invalid PORT, using default 8080");
+            }
             int maxPort = requestedPort + 5;
             HttpServer server = null;
             int activePort = requestedPort;

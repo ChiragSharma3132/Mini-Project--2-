@@ -314,6 +314,7 @@ function getBotResponse(input) {
     if (input.includes("query"))    return "A query is parsed, planned, and then executed against the stored data.";
     if (input.includes("join"))     return "JOINs combine rows from two or more tables based on a related column.";
     if (input.includes("where"))    return "WHERE filters rows based on a condition. Example: WHERE age > 18";
+    if (input.includes("dbms"))     return "A DBMS manages databases, allowing you to create, read, update, and delete data efficiently.";
     return "I answer questions about SQL and this database engine. Try asking about SELECT, INSERT, INDEX, or JOIN!";
 }
 
