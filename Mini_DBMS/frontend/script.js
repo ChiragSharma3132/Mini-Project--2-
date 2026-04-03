@@ -1,24 +1,6 @@
-let BACKEND_URL = "http://localhost:8080";
+const BACKEND_URL = "http://localhost:8080";
 
-async function detectBackendUrl() {
-    const portsToTry = [8080, 8081, 8082, 8083, 8084, 8085];
-    for (const port of portsToTry) {
-        const candidate = `http://localhost:${port}`;
-        try {
-            const resp = await fetch(`${candidate}/health`);
-            if (resp.ok) {
-                BACKEND_URL = candidate;
-                return candidate;
-            }
-        } catch (e) {
-            // Try next candidate port.
-        }
-    }
-    return BACKEND_URL;
-}
-
-window.addEventListener('load', async () => {
-    await detectBackendUrl();
+window.addEventListener('load', () => {
     checkBackend();
     setInterval(checkBackend, 5000);
     loadTables();
@@ -84,19 +66,7 @@ async function checkBackend() {
             statusEl.classList.add('online');
             return true;
         }
-        await detectBackendUrl();
     } catch (e) {}
-
-    try {
-        const resp = await fetch(`${BACKEND_URL}/health`);
-        if (resp.ok) {
-            text.textContent = 'Backend Online';
-            statusEl.classList.remove('offline');
-            statusEl.classList.add('online');
-            return true;
-        }
-    } catch (e) {}
-
     text.textContent = 'Backend Offline';
     statusEl.classList.remove('online');
     statusEl.classList.add('offline');
@@ -185,7 +155,6 @@ async function loadTables() {
         const tables = tablesText.trim().split('\n').filter(t => t);
         const container = document.getElementById('tablesContainer');
         container.innerHTML = '';
-        clearTablePreview();
         if (tables.length === 0) {
             container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;">No tables yet. Create one using a CREATE TABLE query.</p>';
         } else {
@@ -200,75 +169,7 @@ async function loadTables() {
     } catch (error) {
         document.getElementById('tablesContainer').innerHTML =
             '<p style="color:var(--text-secondary);font-size:13px;">Could not load tables — backend may be offline.</p>';
-        clearTablePreview();
     }
-}
-
-async function showTableDetails(tableName) {
-    if (!tableName) {
-        return;
-    }
-
-    const preview = document.getElementById('tablePreview');
-    const title = document.getElementById('tablePreviewTitle');
-    const hint = document.getElementById('tablePreviewHint');
-    const descriptionEl = document.getElementById('tableDescription');
-    const dataEl = document.getElementById('tableData');
-
-    preview.style.display = 'block';
-    title.textContent = `${tableName} Preview`;
-    hint.textContent = 'Loading description and rows...';
-    descriptionEl.textContent = 'Loading description...';
-    dataEl.textContent = 'Loading data...';
-
-    document.querySelectorAll('#tablesContainer .table-btn').forEach(btn => {
-        btn.classList.toggle('active-table', btn.textContent === tableName);
-    });
-
-    try {
-        const encodedTable = encodeURIComponent(tableName);
-        const [descResp, dataResp] = await Promise.all([
-            fetch(`${BACKEND_URL}/table-description?table=${encodedTable}`),
-            fetch(`${BACKEND_URL}/query`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: `SELECT * FROM ${tableName};`
-            })
-        ]);
-
-        const description = await descResp.text();
-        const dataText = await dataResp.text();
-
-        descriptionEl.textContent = description || 'No description available.';
-        dataEl.textContent = dataText || '(no data)';
-        hint.textContent = 'Description and data loaded';
-    } catch (error) {
-        descriptionEl.textContent = 'Could not load table description. Backend may be offline.';
-        dataEl.textContent = 'Could not load table data. Backend may be offline.';
-        hint.textContent = 'Load failed';
-    }
-}
-
-function clearTablePreview() {
-    const preview = document.getElementById('tablePreview');
-    const title = document.getElementById('tablePreviewTitle');
-    const hint = document.getElementById('tablePreviewHint');
-    const descriptionEl = document.getElementById('tableDescription');
-    const dataEl = document.getElementById('tableData');
-
-    if (!preview || !title || !hint || !descriptionEl || !dataEl) {
-        return;
-    }
-
-    preview.style.display = 'none';
-    title.textContent = 'Table Preview';
-    hint.textContent = 'Select a table to view details';
-    descriptionEl.textContent = '';
-    dataEl.textContent = '';
-
-    document.querySelectorAll('#tablesContainer .table-btn').forEach(btn => {
-        btn.classList.remove('active-table');
-    });
 }
 
 // ── CSV Upload ────────────────────────────────────────
@@ -312,7 +213,7 @@ function setUploadStatus(msg, type) {
     el.textContent = msg;
     el.style.color = type === 'success' ? 'var(--green)' :
                      type === 'error'   ? 'var(--red)'   :
-                                        'var(--text-secondary)';
+                                          'var(--text-secondary)';
 }
 
 // ── Example Queries ───────────────────────────────────
@@ -344,7 +245,6 @@ function getBotResponse(input) {
     if (input.includes("query"))    return "A query is parsed, planned, and then executed against the stored data.";
     if (input.includes("join"))     return "JOINs combine rows from two or more tables based on a related column.";
     if (input.includes("where"))    return "WHERE filters rows based on a condition. Example: WHERE age > 18";
-    if (input.includes("dbms"))     return "'DBMS stands for Database Management System. It is used to store, manage and retrieve data efficiently";
     return "I answer questions about SQL and this database engine. Try asking about SELECT, INSERT, INDEX, or JOIN!";
 }
 
