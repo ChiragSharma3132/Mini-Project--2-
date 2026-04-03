@@ -346,8 +346,9 @@ private String pad(String value, int width) {
                         values[i] = values[i].substring(1, values[i].length() - 1);
                     }
                 }
-                storageManager.insertRow(tableName, values);
-                insertedCount++;
+                if (storageManager.insertRow(tableName, values)) {
+                    insertedCount++;
+                }
             }
 
             return insertedCount;

@@ -1,249 +1,226 @@
 package backend.dbengine;
-import java.io.*;
-import java.util.*;
+
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 public class StorageManager {
 
-    private final String DATA_FOLDER = "data/";
+    // Central metadata collection tracks schema for each logical SQL table.
+    private static final String META_COLLECTION = "_table_meta";
 
-    /**
-     * Resolve the CSV file for a given table name.
-     *
-     * On Windows the filesystem is case-insensitive, so we enforce
-     * case-sensitive table-name matching by only returning a file when
-     * the exact case matches an existing file.
-     */
-    private File resolveTableFile(String tableName, boolean forCreation) {
-        File folder = new File(DATA_FOLDER);
-        if (!folder.exists()) {
-            folder.mkdirs();
+    private MongoCollection<Document> metaCollection() {
+        return DBConnection.getDatabase().getCollection(META_COLLECTION);
+    }
+
+    private MongoCollection<Document> dataCollection(String tableName) {
+        // Prefix keeps user tables separate from internal metadata collections.
+        return DBConnection.getDatabase().getCollection("tbl_" + tableName);
+    }
+
+    private Document getTableMeta(String tableName) {
+        return metaCollection().find(Filters.eq("tableName", tableName)).first();
+    }
+
+    private Document getResolvedTableMeta(String tableName) {
+        if (tableName == null || tableName.isBlank()) {
+            return null;
         }
 
-        String desiredName = tableName + ".csv";
-        File[] files = folder.listFiles();
-        if (files != null) {
-            // Prefer an exact-case match
-            for (File f : files) {
-                if (f.getName().equals(desiredName)) {
-                    return f;
-                }
-            }
-            // For creation, if a file differs only in case, treat it as "exists" to avoid collisions
-            if (forCreation) {
-                for (File f : files) {
-                    if (f.getName().equalsIgnoreCase(desiredName)) {
-                        return f;
-                    }
-                }
-            }
+        Document exact = getTableMeta(tableName);
+        if (exact != null) {
+            return exact;
         }
 
-        return new File(folder, desiredName);
+        String quotedName = "^" + Pattern.quote(tableName.trim()) + "$";
+        return metaCollection().find(Filters.regex("tableName", quotedName, "i")).first();
+    }
+
+    public List<String> getTableNames() {
+        List<String> names = new ArrayList<>();
+        for (Document meta : metaCollection().find()) {
+            String tableName = meta.getString("tableName");
+            if (tableName != null && !tableName.isBlank()) {
+                names.add(tableName);
+            }
+        }
+        return names;
     }
 
     public void createTable(String tableName, String[] columns, String[] types) {
-        try {
-            File file = resolveTableFile(tableName, true);
-
-            if (file.exists()) {
-                System.out.println("Table already exists");
-                return;
-            }
-
-            try (PrintWriter writer = new PrintWriter(file)) {
-                for (int i = 0; i < columns.length; i++) {
-                    writer.print(columns[i]);
-                    if (i != columns.length - 1) writer.print(",");
-                }
-                writer.println();
-            }
-
-            // Store types in a separate file
-            File typesFile = new File(DATA_FOLDER + "tables/" + tableName + ".types");
-            typesFile.getParentFile().mkdirs();
-            try (PrintWriter typeWriter = new PrintWriter(typesFile)) {
-                for (int i = 0; i < types.length; i++) {
-                    typeWriter.print(types[i]);
-                    if (i != types.length - 1) typeWriter.print(",");
-                }
-                typeWriter.println();
-            }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
+        if (getResolvedTableMeta(tableName) != null) {
+            System.out.println("Table already exists");
+            return;
         }
+
+        Document meta = new Document("tableName", tableName)
+                .append("columns", List.of(columns))
+                .append("types", List.of(types));
+
+        metaCollection().insertOne(meta);
+
+        // Touch the data collection so it appears immediately in Atlas.
+        dataCollection(tableName).insertOne(new Document("_init", true));
+        dataCollection(tableName).deleteOne(Filters.eq("_init", true));
     }
 
-    public void insertRow(String tableName, String[] values) {
-        try {
-            File file = resolveTableFile(tableName, false);
-            if (!file.exists()) {
-                System.out.println("Table not found: " + tableName);
-                return;
-            }
-
-            try (FileWriter writer = new FileWriter(file, true)) {
-                for (int i = 0; i < values.length; i++) {
-                    writer.append(values[i]);
-                    if (i != values.length - 1) writer.append(",");
-                }
-                writer.append("\n");
-            }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
+    public boolean insertRow(String tableName, String[] values) {
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) {
+            System.out.println("Table not found: " + tableName);
+            return false;
         }
+
+        String canonicalTableName = meta.getString("tableName");
+        if (canonicalTableName == null || canonicalTableName.isBlank()) {
+            System.out.println("Table not found: " + tableName);
+            return false;
+        }
+
+        List<String> columns = meta.getList("columns", String.class);
+        if (columns == null || columns.isEmpty()) {
+            return false;
+        }
+
+        Document row = new Document();
+        for (int i = 0; i < columns.size(); i++) {
+            String col = columns.get(i);
+            String val = i < values.length ? values[i] : "";
+            row.append(col, val);
+        }
+
+        dataCollection(canonicalTableName).insertOne(row);
+        return true;
     }
 
     public List<String[]> readTable(String tableName) {
         List<String[]> rows = new ArrayList<>();
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) {
+            System.out.println("Table not found: " + tableName);
+            return rows;
+        }
 
-        try {
-            File file = resolveTableFile(tableName, false);
-            if (!file.exists()) {
-                System.out.println("Table not found: " + tableName);
-                return rows;
-            }
+        String canonicalTableName = meta.getString("tableName");
+        if (canonicalTableName == null || canonicalTableName.isBlank()) {
+            System.out.println("Table not found: " + tableName);
+            return rows;
+        }
 
-            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    rows.add(line.split(","));
-                }
+        List<String> columns = meta.getList("columns", String.class);
+        if (columns == null || columns.isEmpty()) {
+            return rows;
+        }
+
+        // Keep compatibility with existing QueryExecutor logic: first row is header.
+        rows.add(columns.toArray(new String[0]));
+
+        for (Document doc : dataCollection(canonicalTableName).find()) {
+            String[] row = new String[columns.size()];
+            for (int i = 0; i < columns.size(); i++) {
+                Object value = doc.get(columns.get(i));
+                row[i] = value == null ? "" : value.toString();
             }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
+            rows.add(row);
         }
 
         return rows;
     }
 
-    public int updateRows(String tableName, java.util.Map<String, String> updates, String whereColumn, String whereValue) {
-        File file = resolveTableFile(tableName, false);
-        if (!file.exists()) return 0;
+    public int updateRows(String tableName, Map<String, String> updates, String whereColumn, String whereValue) {
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) return 0;
 
-        java.util.List<String[]> rows = readTable(tableName);
-        if (rows.isEmpty()) return 0;
+        String canonicalTableName = meta.getString("tableName");
+        if (canonicalTableName == null || canonicalTableName.isBlank()) return 0;
 
-        String[] header = rows.get(0);
-        java.util.Map<String, Integer> colIndex = new java.util.HashMap<>();
-        for (int i = 0; i < header.length; i++) {
-            colIndex.put(header[i], i);
+        Bson filter = Filters.eq(whereColumn, whereValue);
+
+        List<Bson> updateOps = new ArrayList<>();
+        for (Map.Entry<String, String> entry : updates.entrySet()) {
+            updateOps.add(Updates.set(entry.getKey(), entry.getValue()));
         }
 
-        if (!colIndex.containsKey(whereColumn)) return 0;
-        int whereIdx = colIndex.get(whereColumn);
+        if (updateOps.isEmpty()) return 0;
 
-        java.util.List<String[]> updatedRows = new java.util.ArrayList<>();
-        updatedRows.add(header);
-
-        int updatedCount = 0;
-        for (int r = 1; r < rows.size(); r++) {
-            String[] row = rows.get(r);
-            if (row.length <= whereIdx) {
-                updatedRows.add(row);
-                continue;
-            }
-            if (row[whereIdx].equals(whereValue)) {
-                for (var entry : updates.entrySet()) {
-                    String col = entry.getKey();
-                    String val = entry.getValue();
-                    Integer idx = colIndex.get(col);
-                    if (idx != null && idx < row.length) {
-                        row[idx] = val;
-                    }
-                }
-                updatedCount++;
-            }
-            updatedRows.add(row);
-        }
-
-        // Rewrite file
-        try (PrintWriter writer = new PrintWriter(new FileWriter(DATA_FOLDER + tableName + ".csv", false))) {
-            for (String[] r : updatedRows) {
-                for (int i = 0; i < r.length; i++) {
-                    writer.print(r[i]);
-                    if (i != r.length - 1) writer.print(",");
-                }
-                writer.println();
-            }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
-        }
-
-        return updatedCount;
+        UpdateResult result = dataCollection(canonicalTableName).updateMany(filter, Updates.combine(updateOps));
+        return (int) result.getModifiedCount();
     }
 
     public int deleteRows(String tableName, String whereColumn, String whereValue) {
-        File file = resolveTableFile(tableName, false);
-        if (!file.exists()) return 0;
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) return 0;
 
-        java.util.List<String[]> rows = readTable(tableName);
-        if (rows.isEmpty()) return 0;
+        String canonicalTableName = meta.getString("tableName");
+        if (canonicalTableName == null || canonicalTableName.isBlank()) return 0;
 
-        String[] header = rows.get(0);
-        java.util.Map<String, Integer> colIndex = new java.util.HashMap<>();
-        for (int i = 0; i < header.length; i++) {
-            colIndex.put(header[i], i);
-        }
-
-        if (!colIndex.containsKey(whereColumn)) return 0;
-        int whereIdx = colIndex.get(whereColumn);
-
-        java.util.List<String[]> remaining = new java.util.ArrayList<>();
-        remaining.add(header);
-
-        int deleteCount = 0;
-        for (int r = 1; r < rows.size(); r++) {
-            String[] row = rows.get(r);
-            if (row.length > whereIdx && row[whereIdx].equals(whereValue)) {
-                deleteCount++;
-            } else {
-                remaining.add(row);
-            }
-        }
-
-        // Rewrite file
-        try (PrintWriter writer = new PrintWriter(new FileWriter(DATA_FOLDER + tableName + ".csv", false))) {
-            for (String[] r : remaining) {
-                for (int i = 0; i < r.length; i++) {
-                    writer.print(r[i]);
-                    if (i != r.length - 1) writer.print(",");
-                }
-                writer.println();
-            }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
-        }
-
-        return deleteCount;
+        DeleteResult result = dataCollection(canonicalTableName).deleteMany(Filters.eq(whereColumn, whereValue));
+        return (int) result.getDeletedCount();
     }
 
     public void dropTable(String tableName) {
-        File file = resolveTableFile(tableName, false);
-        if (file.exists()) {
-            if (!file.delete()) {
-                System.err.println("Failed to delete table file: " + file.getPath());
-            }
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) {
+            return;
         }
-        // Also delete types file
-        File typesFile = new File(DATA_FOLDER + "tables/" + tableName + ".types");
-        if (typesFile.exists()) {
-            typesFile.delete();
+
+        String canonicalTableName = meta.getString("tableName");
+        if (canonicalTableName == null || canonicalTableName.isBlank()) {
+            return;
         }
+
+        metaCollection().deleteOne(Filters.eq("tableName", canonicalTableName));
+        dataCollection(canonicalTableName).drop();
     }
 
     public String[] getTableTypes(String tableName) {
-        File typesFile = new File(DATA_FOLDER + "tables/" + tableName + ".types");
-        if (!typesFile.exists()) {
+        Document meta = getResolvedTableMeta(tableName);
+        if (meta == null) {
             return new String[0];
         }
-        try (BufferedReader reader = new BufferedReader(new FileReader(typesFile))) {
-            String line = reader.readLine();
-            if (line != null) {
-                return line.split(",");
-            }
-        } catch (IOException e) {
-            System.err.println("StorageManager I/O error: " + e.getMessage());
+
+        List<String> types = meta.getList("types", String.class);
+        if (types == null) {
+            return new String[0];
         }
-        return new String[0];
+
+        return types.toArray(new String[0]);
+    }
+
+    // Generic Mongo CRUD helper methods requested for direct document operations.
+    public void insertDocument(String collectionName, Map<String, Object> documentData) {
+        DBConnection.getDatabase().getCollection(collectionName).insertOne(new Document(documentData));
+    }
+
+    public List<Document> findDocuments(String collectionName, Map<String, Object> filterData) {
+        List<Document> docs = new ArrayList<>();
+        Bson filter = new Document(filterData);
+        for (Document doc : DBConnection.getDatabase().getCollection(collectionName).find(filter)) {
+            docs.add(doc);
+        }
+        return docs;
+    }
+
+    public long updateDocument(String collectionName, Map<String, Object> filterData, Map<String, Object> updates) {
+        Bson filter = new Document(filterData);
+        Bson updateOp = new Document("$set", new Document(updates));
+        UpdateResult result = DBConnection.getDatabase().getCollection(collectionName).updateMany(filter, updateOp);
+        return result.getModifiedCount();
+    }
+
+    public long deleteDocument(String collectionName, Map<String, Object> filterData) {
+        Bson filter = new Document(filterData);
+        DeleteResult result = DBConnection.getDatabase().getCollection(collectionName).deleteMany(filter);
+        return result.getDeletedCount();
     }
 }

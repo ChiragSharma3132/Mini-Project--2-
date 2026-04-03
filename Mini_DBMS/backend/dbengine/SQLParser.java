@@ -4,30 +4,31 @@ public class SQLParser {
     public static String getQueryType(String query) {
 
         String trimmed = query.trim();
+        String upper = trimmed.toUpperCase();
 
         // Require exact uppercase command keywords (case-sensitive SQL keywords)
         // Only the keyword parts are checked; table/column/value casing is preserved.
-        if (trimmed.startsWith("CREATE TABLE")) {
+        if (upper.startsWith("CREATE TABLE")) {
             return "CREATE";
         }
 
-        if (trimmed.startsWith("INSERT INTO")) {
+        if (upper.startsWith("INSERT INTO")) {
             return "INSERT";
         }
 
-        if (trimmed.startsWith("SELECT")) {
+        if (upper.startsWith("SELECT")) {
             return "SELECT";
         }
 
-        if (trimmed.startsWith("UPDATE")) {
+        if (upper.startsWith("UPDATE")) {
             return "UPDATE";
         }
 
-        if (trimmed.startsWith("DELETE")) {
+        if (upper.startsWith("DELETE")) {
             return "DELETE";
         }
 
-        if (trimmed.startsWith("DROP TABLE")) {
+        if (upper.startsWith("DROP TABLE")) {
             return "DROP";
         }
 
