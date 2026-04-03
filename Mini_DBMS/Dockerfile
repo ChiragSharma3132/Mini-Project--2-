@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN javac -cp ".:lib/*" backend/dbengine/*.java
+RUN find . -name "*.java" > sources.txt && javac -cp ".:lib/*" @sources.txt
 
 EXPOSE 3000
 
