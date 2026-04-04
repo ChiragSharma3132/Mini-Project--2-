@@ -1,7 +1,7 @@
 📘 Mini Project – 2
 🗄️ Simplified Relational Database Engine
 
-📖 Project Overview
+📖 Project Overview - 
 
 This project focuses on building a simplified relational database engine to demonstrate the internal workings of database management systems.
 
@@ -9,7 +9,7 @@ Unlike traditional databases that function as black-box systems, this project em
 
 The system supports basic SQL operations and simulates key internal processes such as query parsing, execution planning, indexing, and data retrieval.
 
-🎯 Objectives
+🎯 Objectives - 
 Understand the internal architecture of relational database systems
 Implement core components such as:
 Query Parser
@@ -19,7 +19,7 @@ Learn concepts of data storage and indexing
 Gain practical experience in system-level programming
 Demonstrate how database queries are processed internally
 
-⚙️ Features
+⚙️ Features - 
 🔹 SQL Operation Support
 
 The system supports fundamental SQL commands:
