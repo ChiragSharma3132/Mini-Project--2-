@@ -4,7 +4,7 @@ window.addEventListener('load', () => {
     checkBackend();
     setInterval(checkBackend, 5000);
     loadTables();
-
+//Hi 
     // Ctrl+Enter to run query
     document.getElementById('queryInput').addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 'Enter') executeQuery();
