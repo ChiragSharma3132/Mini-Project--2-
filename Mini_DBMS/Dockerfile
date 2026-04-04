@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN javac -cp "lib/*" backend/dbengine/*.java
+# FIXED classpath
+RUN javac -cp "lib/*:." $(find backend -name "*.java")
 
+# run
 CMD ["java", "-cp", "lib/*:backend", "backend.MainServer"]
