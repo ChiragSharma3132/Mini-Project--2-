@@ -2,11 +2,8 @@ FROM eclipse-temurin:17
 
 WORKDIR /app
 
-# copy all files
 COPY . .
 
-# compile with libraries
-RUN javac -cp "lib/*" backend/**/*.java
+RUN find backend -name "*.java" | xargs javac -cp "lib/*"
 
-# run with libraries
-CMD ["java", "-cp", "lib/*:.", "backend.MainServer"]
+CMD ["java", "-cp", "lib/*:backend", "backend.MainServer"]
