@@ -4,6 +4,6 @@ WORKDIR /app
 
 COPY . .
 
-RUN find backend -name "*.java" | xargs javac -cp "lib/*"
+RUN javac -cp "lib/*" backend/dbengine/*.java
 
 CMD ["java", "-cp", "lib/*:backend", "backend.MainServer"]
