@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://mini-project-2-uyp8.onrender.com/";
+const BACKEND_URL = "https://mini-project-2-uyp8.onrender.com".replace(/\/+$/, "");
 
 window.addEventListener('load', () => {
     checkBackend();
