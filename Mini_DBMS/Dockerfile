@@ -1,12 +1,12 @@
-FROM eclipse-temurin:17
+FROM openjdk:17
 
 WORKDIR /app
 
+# copy all files
 COPY . .
 
-# lib folder ko include karo
-RUN javac -cp ".:lib/*" backend/dbengine/*.java
+# compile with libraries
+RUN javac -cp "lib/*" backend/**/*.java
 
-EXPOSE 3000
-
-CMD ["java", "-cp", ".:lib/*:backend/dbengine", "dbengine.MainServer"]
+# run with libraries
+CMD ["java", "-cp", "lib/*:.", "backend.MainServer"]
