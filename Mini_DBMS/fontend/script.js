@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:8080";
+const BACKEND_URL = "https://mini-project-2-uyp8.onrender.com/";
 
 window.addEventListener('load', () => {
     checkBackend();
