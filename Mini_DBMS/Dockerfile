@@ -8,4 +8,4 @@ COPY . .
 RUN javac -cp "lib/*:." $(find backend -name "*.java")
 
 # run
-CMD ["java", "-cp", "lib/*:backend", "backend.MainServer"]
+CMD ["java", "-cp", "lib/*:.", "backend.dbengine.MainServer"]
