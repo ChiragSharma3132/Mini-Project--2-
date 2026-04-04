@@ -354,15 +354,3 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;");
 }
 
-// ── Analysis (placeholder) ────────────────────────────
-function runAnalysis() {
-    const table = document.getElementById('tableName').value;
-    const column = document.getElementById('columnName').value;
-    const chart = document.getElementById('graphType').value;
-    const container = document.getElementById('analysisContainer');
-    if (!table || !column) {
-        container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;">Please select a table and column first.</p>';
-        return;
-    }
-    container.innerHTML = `<p style="color:var(--green);font-size:13px;">Generating ${chart} chart for <strong>${column}</strong> in <strong>${table}</strong>…</p>`;
-}
