@@ -7,3 +7,4 @@ node_modules/
 # Ignore local environment files
 .env
 .env.*
+**/.env
