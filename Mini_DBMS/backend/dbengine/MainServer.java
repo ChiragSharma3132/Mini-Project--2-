@@ -359,9 +359,14 @@ public class MainServer {
                     }
 
                     try {
-                        String response = generateGeminiRaw(message, apiKey);
+                        String prompt = "You are a helpful assistant for a mini database engine. "
+                                + "Answer clearly and briefly. Focus on SQL, tables, queries, indexes, schema, and this app's database workflow. "
+                                + "If the user asks something unrelated to the database app, still be polite and helpful.\n\n"
+                                + "User message: " + message;
+
+                        String response = generateGeminiText(prompt, apiKey);
                         if (response == null || response.isBlank()) {
-                            response = "{\"error\": \"No response from API\"}";
+                            response = "Sorry, I could not generate a response right now.";
                         }
 
                         byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
@@ -445,27 +450,6 @@ public class MainServer {
             if (matcher.find()) {
                 return unescapeJsonString(matcher.group(1)).trim();
             }
-        }
-
-        return "";
-    }
-
-    private static String generateGeminiRaw(String prompt, String apiKey) throws IOException {
-        String[] models = new String[] {
-                "gemini-2.0-flash",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-flash"
-        };
-
-        for (String model : models) {
-            String response = generateGeminiRaw(prompt, apiKey, model);
-            if (response == null || response.isBlank()) {
-                continue;
-            }
-            if (response.contains("\"error\"")) {
-                continue;
-            }
-            return response;
         }
 
         return "";

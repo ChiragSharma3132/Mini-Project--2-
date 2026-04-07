@@ -301,7 +301,7 @@ function insertExample(type) {
 }
 
 // ── Chatbot ───────────────────────────────────────────
-function getBotResponse(input) {
+function getLocalBotResponse(input) {
     input = input.toLowerCase();
     if (input.includes("hello") || input.includes("hi")) return "Hello! I can help you understand the DB engine.";
     if (input.includes("select"))   return "SELECT retrieves data from a table. Example: SELECT * FROM students;";
@@ -318,7 +318,7 @@ function getBotResponse(input) {
     return "I answer questions about SQL and this database engine. Try asking about SELECT, INSERT, INDEX, or JOIN!";
 }
 
-function sendMessage() {
+async function sendMessage() {
     const inputField = document.getElementById("chat-input");
     const message = inputField.value.trim();
     if (!message) return;
@@ -331,9 +331,24 @@ function sendMessage() {
         <div class="chat-bubble">${escapeHtml(message)}</div>
       </div>`;
 
-    const response = getBotResponse(message);
+        let response = '';
 
-    setTimeout(() => {
+        try {
+                const apiResponse = await fetch(`${BACKEND_URL}/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: message
+                });
+
+                response = await apiResponse.text();
+                if (!apiResponse.ok || !response.trim()) {
+                        throw new Error('Chat endpoint returned an empty response');
+                }
+        } catch (error) {
+                response = getLocalBotResponse(message);
+        }
+
+        setTimeout(() => {
         chatBox.innerHTML += `
           <div class="chat-message bot-message">
             <div class="chat-avatar">AI</div>

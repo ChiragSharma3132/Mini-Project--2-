@@ -3,3 +3,7 @@ node_modules/
 
 # Ignore lock files in subfolders (we only use root)
 **/package-lock.json
+
+# Ignore local environment files
+.env
+.env.*
