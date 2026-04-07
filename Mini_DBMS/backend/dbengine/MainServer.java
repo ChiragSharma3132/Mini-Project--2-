@@ -8,6 +8,8 @@ import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -292,7 +294,7 @@ public class MainServer {
                 QueryExecutor executor = new QueryExecutor();
                 String description = executor.getTableDescription(tableName);
 
-                String apiKey = System.getenv("GEMINI_API_KEY");
+                String apiKey = getGeminiApiKey();
                 if (apiKey != null && !apiKey.isBlank()) {
                     try {
                         String schema = executor.getTableSchema(tableName);
@@ -347,7 +349,7 @@ public class MainServer {
                     String message = msgBuilder.toString().trim();
 
                     // Get API key from environment variable
-                    String apiKey = System.getenv("GEMINI_API_KEY");
+                    String apiKey = getGeminiApiKey();
                     if (apiKey == null || apiKey.isEmpty()) {
                         String errMsg = "{\"error\": \"API key not configured\"}";
                         byte[] response = errMsg.getBytes(StandardCharsets.UTF_8);
@@ -366,7 +368,13 @@ public class MainServer {
 
                         String response = generateGeminiText(prompt, apiKey);
                         if (response == null || response.isBlank()) {
-                            response = "Sorry, I could not generate a response right now.";
+                            String errMsg = "{\"error\": \"Gemini returned empty response\"}";
+                            byte[] errResponse = errMsg.getBytes(StandardCharsets.UTF_8);
+                            exchange.sendResponseHeaders(502, errResponse.length);
+                            try (OutputStream os = exchange.getResponseBody()) {
+                                os.write(errResponse);
+                            }
+                            return;
                         }
 
                         byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
@@ -375,10 +383,9 @@ public class MainServer {
                             os.write(responseBytes);
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
-                        String errMsg = "{\"error\": \"" + escapeJson(e.toString()) + "\"}";
+                        String errMsg = "{\"error\": \"" + escapeJson(e.getMessage() == null ? e.toString() : e.getMessage()) + "\"}";
                         byte[] errResponse = errMsg.getBytes(StandardCharsets.UTF_8);
-                        exchange.sendResponseHeaders(500, errResponse.length);
+                        exchange.sendResponseHeaders(502, errResponse.length);
                         try (OutputStream os = exchange.getResponseBody()) {
                             os.write(errResponse);
                         }
@@ -436,12 +443,15 @@ public class MainServer {
                 "gemini-1.5-flash"
         };
 
+        String lastErrorPayload = "";
+
         for (String model : models) {
             String response = generateGeminiRaw(prompt, apiKey, model);
             if (response == null || response.isBlank()) {
                 continue;
             }
             if (response.contains("\"error\"")) {
+                lastErrorPayload = response;
                 continue;
             }
 
@@ -450,6 +460,10 @@ public class MainServer {
             if (matcher.find()) {
                 return unescapeJsonString(matcher.group(1)).trim();
             }
+        }
+
+        if (!lastErrorPayload.isBlank()) {
+            throw new IOException("Gemini API error: " + trimForLog(lastErrorPayload, 500));
         }
 
         return "";
@@ -505,5 +519,39 @@ public class MainServer {
                     .replace("\\t", "\t")
                     .replace("\\\"", "\"")
                     .replace("\\\\", "\\");
+    }
+
+    private static String getGeminiApiKey() {
+        String envValue = System.getenv("GEMINI_API_KEY");
+        if (envValue != null && !envValue.isBlank()) {
+            return envValue.trim();
+        }
+
+        Path envPath = Path.of(System.getProperty("user.dir"), ".env");
+        if (!Files.exists(envPath)) {
+            return "";
+        }
+
+        try {
+            for (String rawLine : Files.readAllLines(envPath, StandardCharsets.UTF_8)) {
+                String line = rawLine.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                if (line.startsWith("GEMINI_API_KEY=")) {
+                    return line.substring("GEMINI_API_KEY=".length()).trim();
+                }
+            }
+        } catch (IOException ignored) {
+            return "";
+        }
+
+        return "";
+    }
+
+    private static String trimForLog(String input, int maxLen) {
+        if (input == null) return "";
+        if (input.length() <= maxLen) return input;
+        return input.substring(0, maxLen) + "...";
     }
 }

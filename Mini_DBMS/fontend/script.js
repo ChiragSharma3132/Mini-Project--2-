@@ -331,22 +331,34 @@ async function sendMessage() {
         <div class="chat-bubble">${escapeHtml(message)}</div>
       </div>`;
 
-        let response = '';
+    let response = '';
 
-        try {
-                const apiResponse = await fetch(`${BACKEND_URL}/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: message
-                });
+    try {
+        const apiResponse = await fetch(`${BACKEND_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: message
+        });
 
-                response = await apiResponse.text();
-                if (!apiResponse.ok || !response.trim()) {
-                        throw new Error('Chat endpoint returned an empty response');
+        const rawResponse = await apiResponse.text();
+        if (!apiResponse.ok) {
+            let readableError = rawResponse;
+            try {
+                const parsed = JSON.parse(rawResponse);
+                if (parsed && parsed.error) {
+                    readableError = parsed.error;
                 }
-        } catch (error) {
-                response = getLocalBotResponse(message);
+            } catch (e) {}
+
+            response = `AI unavailable: ${readableError}`;
+        } else if (!rawResponse.trim()) {
+            response = 'AI unavailable: Empty response from server.';
+        } else {
+            response = rawResponse;
         }
+    } catch (error) {
+        response = getLocalBotResponse(message);
+    }
 
         setTimeout(() => {
         chatBox.innerHTML += `
