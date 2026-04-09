@@ -1,6 +1,7 @@
 const BACKEND_URL = "https://mini-project-2-uyp8.onrender.com".replace(/\/+$/, "");
 
 window.addEventListener('load', () => {
+    loadTheme();
     checkBackend();
     setInterval(checkBackend, 5000);
     loadTables();
@@ -51,6 +52,32 @@ function updateLineNumbers() {
 function syncScroll(el) {
     const lineNumbers = document.getElementById('lineNumbers');
     lineNumbers.scrollTop = el.scrollTop;
+}
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem('minidbTheme') || 'dark';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+    }
+    updateThemeToggle();
+}
+
+function saveTheme(mode) {
+    localStorage.setItem('minidbTheme', mode);
+}
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    saveTheme(isLight ? 'light' : 'dark');
+    updateThemeToggle();
+}
+
+function updateThemeToggle() {
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    const isLight = document.body.classList.contains('light-mode');
+    btn.textContent = isLight ? '🌙' : '☀️';
+    btn.title = isLight ? 'Switch to dark mode' : 'Switch to light mode';
 }
 
 // ── Backend check ─────────────────────────────────────
