@@ -1,10 +1,20 @@
 const BACKEND_URL = "https://mini-project-2-uyp8.onrender.com".replace(/\/+$/, "");
 
+// Enhanced initialization with better feedback
 window.addEventListener('load', () => {
     loadTheme();
     checkBackend();
     setInterval(checkBackend, 5000);
     loadTables();
+
+    // Add smooth scroll behavior
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
 
     // Ctrl+Enter to run query
     document.getElementById('queryInput').addEventListener('keydown', (e) => {
@@ -14,11 +24,12 @@ window.addEventListener('load', () => {
     // Upload tab listener setup
     document.getElementById('csvFileInput').addEventListener('change', handleFileUpload);
 
-    // Drag and drop for upload zone
+    // Drag and drop for upload zone with enhanced feedback
     const uploadZone = document.getElementById('uploadZone');
     if (uploadZone) {
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             uploadZone.classList.add('drag-over');
         });
         uploadZone.addEventListener('dragleave', () => {
@@ -26,6 +37,7 @@ window.addEventListener('load', () => {
         });
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             uploadZone.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (file) {
@@ -39,6 +51,25 @@ window.addEventListener('load', () => {
     }
 
     updateLineNumbers();
+
+    // Add ripple effect to all buttons
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const ripple = document.createElement('div');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            ripple.classList.add('ripple');
+            this.appendChild(ripple);
+            
+            setTimeout(() => ripple.remove(), 600);
+        });
+    });
 });
 
 // ── Line numbers ──────────────────────────────────────
@@ -108,6 +139,8 @@ async function executeQuery() {
     const resultSection = document.getElementById('resultSection');
     const resultEl = document.getElementById("result");
 
+    showLoader(); // NEW
+
     resultEl.textContent = "Running…";
     resultSection.style.display = 'block';
 
@@ -120,14 +153,15 @@ async function executeQuery() {
 
         const result = await response.text();
         resultEl.textContent = result;
+
+        showToast("Query executed successfully ✅"); // NEW
         addToHistory(query);
 
-        const queryUpper = query.toUpperCase();
-        if (queryUpper.startsWith("DROP TABLE") || queryUpper.startsWith("CREATE TABLE")) {
-            loadTables();
-        }
     } catch (error) {
-        resultEl.textContent = "⚠  Could not connect to the backend. Is it running?";
+        resultEl.textContent = "⚠ Could not connect to backend";
+        showToast("Error running query ❌");
+    } finally {
+        hideLoader(); // NEW
     }
 }
 
@@ -408,3 +442,38 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;");
 }
 
+// === UI Enhancements ===
+
+// Loader
+function showLoader() {
+    const loader = document.createElement("div");
+    loader.id = "globalLoader";
+    loader.innerHTML = `<div class="spinner"></div>`;
+    document.body.appendChild(loader);
+}
+
+function hideLoader() {
+    const loader = document.getElementById("globalLoader");
+    if (loader) loader.remove();
+}
+
+// Toast
+function showToast(msg) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// Subtle click sound
+const clickSound = new Audio("https://www.fesliyanstudios.com/play-mp3/387");
+clickSound.volume = 0.05;
+
+document.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    clickSound.currentTime = 0;
+    clickSound.play();
+  });
+});
